@@ -131,6 +131,36 @@
     return { tasks: [...tasks, task], task };
   }
 
+  // 여러 줄을 한꺼번에 직접 추가 (메모·카톡에서 복사한 목록). ☑ 로 시작하는 줄은 완료로 넣음.
+  const MAX_PASTE = 100;
+  function addManualMany(tasks, text) {
+    let cur = tasks;
+    const added = [];
+    for (const it of parse(text).slice(0, MAX_PASTE)) {
+      const r = addManual(cur, it.title);
+      if (!r) continue;
+      r.task.done = it.done === true;
+      cur = r.tasks.map(t => (t.id === r.task.id ? r.task : t));
+      added.push(r.task);
+    }
+    return added.length ? { tasks: cur, added } : null;
+  }
+
+  // 전날 못 끝낸 할 일을 오늘로 가져옴: 지워지지 않았고 완료하지 않았고, 오늘 목록에 같은 제목이 없는 것만.
+  function carryOver(prevTasks, curTasks) {
+    const have = new Set(curTasks.filter(t => !t.gone).map(t => normalize(t.title)));
+    const out = [];
+    for (const t of prevTasks || []) {
+      if (t.gone || t.done) continue;
+      const n = normalize(t.title);
+      if (!n || have.has(n)) continue;
+      have.add(n);
+      const id = uid();
+      out.push({ id, key: 'manual:' + id, title: t.title, cat: t.cat || '', done: false, slot: null, gone: false, fresh: false, manual: true });
+    }
+    return out;
+  }
+
   function hasChanges(r) { return r.added + r.removed + r.completed > 0; }
 
   // 하루는 새벽 2시에 바뀜 (그 전은 전날의 밤)
@@ -238,7 +268,7 @@
     return { state: s, result, push };
   }
 
-  const api = { addDays, addMonths, weekOf, monthWeeks, addManual, parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
+  const api = { addManualMany, carryOver, addDays, addMonths, weekOf, monthWeeks, addManual, parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Planner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

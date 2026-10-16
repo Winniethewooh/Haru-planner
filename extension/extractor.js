@@ -23,6 +23,14 @@
     return el;
   }
 
+  // findItem 과 같지만, 반복되는 목록 항목을 못 찾으면 null
+  function findItemStrict(el) {
+    const a = findItem(el);
+    if (!a || !a.parentElement) return null;
+    const s = sig(a);
+    return [...a.parentElement.children].filter(c => sig(c) === s && text(c)).length >= 2 ? a : null;
+  }
+
   // 항목을 가리키는 선택자: 클래스가 있는 가장 가까운 조상 > … > 항목
   function selectorFor(item) {
     const parts = [sig(item)];
@@ -94,5 +102,5 @@
       .filter(it => it.title);
   }
 
-  root.HaruExtractor = { findItem, selectorFor, tokens, learnDone, isDone, titleOf, extract };
+  root.HaruExtractor = { findItem, findItemStrict, selectorFor, tokens, learnDone, isDone, titleOf, extract };
 })(globalThis);

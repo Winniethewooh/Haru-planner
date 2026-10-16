@@ -103,7 +103,8 @@
   }
 
   // ---------- 할 일 탭해서 지정 ----------
-  function tapPick(message, extraButtons) {
+  // sibling: 앞서 고른 항목. 주면 그 항목과 같은 목록 안의 줄을 우선 고름 (완료한 줄은 모양이 달라질 수 있어서)
+  function tapPick(message, extraButtons, sibling) {
     return new Promise(resolve => {
       const box = document.createElement('div');
       box.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;outline:3px solid #111;outline-offset:2px;border-radius:8px;display:none';
@@ -120,10 +121,20 @@
         e.preventDefault();
         e.stopPropagation();
         card.style.display = 'none';
-        const target = document.elementFromPoint(e.clientX, e.clientY);
+        // 그 자리에 겹쳐 있는 요소들 중 '반복되는 목록 항목'을 우선 고름 (위에 안내창이 덮여 있어도 목록을 가리킬 수 있게)
+        const stack = document.elementsFromPoint(e.clientX, e.clientY).filter(n => n !== box && !(card && card.contains(n)));
         card.style.display = '';
-        if (!target) return;
-        const item = X.findItem(target);
+        let item = null;
+        if (sibling && sibling.parentElement) {
+          for (const n of stack) {
+            let a = n;
+            while (a && a.parentElement !== sibling.parentElement) a = a.parentElement;
+            if (a && a !== document.documentElement) { item = a; break; }
+          }
+        }
+        if (!item) for (const n of stack) { item = X.findItemStrict(n); if (item) break; }
+        if (!item && stack[0]) item = X.findItem(stack[0]);
+        if (!item) return;
         const r = item.getBoundingClientRect();
         Object.assign(box.style, { display: 'block', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
         setTimeout(() => finish(item), 250);
@@ -145,7 +156,7 @@
     const item = await tapPick('완료하지 않은 할 일 하나를 탭하세요');
     if (!item) return close();
     const next = { selector: X.selectorFor(item) };
-    const done = await tapPick('이번엔 완료한 할 일 하나를 탭하세요', [{ label: '완료한 게 없어요', value: null }]);
+    const done = await tapPick('이번엔 완료한 할 일 하나를 탭하세요', [{ label: '완료한 게 없어요', value: null }], item);
     if (done === undefined) return close();
     if (done && done !== item) Object.assign(next, X.learnDone(done, item));
     cfg = next;

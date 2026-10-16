@@ -191,3 +191,34 @@ test('날짜 계산: weekOf / monthWeeks (일요일 시작)', () => {
   assert.strictEqual(P.monthWeeks('2026-02-10').length, 4);                  // 2/1(일) ~ 2/28(토): 딱 4주
   assert.strictEqual(P.monthWeeks('2026-08-10').length, 6);                  // 7/26 ~ 9/5
 });
+
+test('addManualMany: 여러 줄을 한꺼번에 추가', () => {
+  const r = P.addManualMany([], '영어 단어\n- 운동\n☑ 독서\n\n  \n1. 장보기');
+  assert.deepStrictEqual(r.added.map(t => [t.title, t.done, t.manual]), [
+    ['영어 단어', false, true], ['운동', false, true], ['독서', true, true], ['장보기', false, true],
+  ]);
+  assert.strictEqual(r.tasks.length, 4);
+  assert.strictEqual(new Set(r.tasks.map(t => t.key)).size, 4);          // 키가 겹치지 않음
+  assert.strictEqual(P.addManualMany([], '   \n\n'), null);
+  const many = Array.from({ length: 300 }, (_, i) => '할 일 ' + i).join('\n');
+  assert.strictEqual(P.addManualMany([], many).added.length, 100);
+});
+
+test('carryOver: 전날 못 끝낸 할 일만 새 항목으로', () => {
+  const prev = [
+    { id: 'a', title: '영어 단어', done: false, gone: false, cat: '공부' },
+    { id: 'b', title: '운동', done: true, gone: false },
+    { id: 'c', title: '독서', done: false, gone: true },
+    { id: 'd', title: '장보기', done: false, gone: false },
+    { id: 'e', title: '장 보기', done: false, gone: false },         // 띄어쓰기만 다른 중복
+  ];
+  const cur = [{ id: 'x', title: '독서', done: false, gone: false }];
+  const r = P.carryOver(prev, cur);
+  assert.deepStrictEqual(r.map(t => [t.title, t.cat, t.done, t.slot, t.manual]), [
+    ['영어 단어', '공부', false, null, true],
+    ['장보기', '', false, null, true],
+  ]);
+  assert.ok(r.every(t => t.id !== 'a' && t.key.startsWith('manual:')));
+  assert.deepStrictEqual(P.carryOver(prev, [{ title: '영어 단어' }, { title: '장보기' }]), []);   // 이미 있으면 가져오지 않음
+  assert.deepStrictEqual(P.carryOver(null, cur), []);
+});

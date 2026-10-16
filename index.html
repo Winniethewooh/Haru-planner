@@ -51,6 +51,11 @@
         <button type="submit" class="go">추가</button>
       </form>
 
+      <div id="carry" class="carry" hidden>
+        <button id="carryGo" type="button"></button>
+        <button id="carryX" type="button" aria-label="이 안내 닫기">×</button>
+      </div>
+
       <section id="inbox" class="slot" data-slot="">
         <h2>미배정 <span class="count"></span></h2>
         <ul></ul>
@@ -59,7 +64,7 @@
       <div id="slots"></div>
 
       <p id="empty" class="empty" hidden>
-        <span id="emptyToday">투두메이트의 오늘 할 일을<br><button id="emptyImport" class="link">가져와서 시작하기</button></span>
+        <span id="emptyToday">아직 할 일이 없어요.<br>위 입력칸에 적어서 추가해 보세요.<br><span class="muted small">여러 줄을 붙여넣으면 한 번에 들어가요.</span></span>
         <span id="emptyOther">이 날은 비어 있어요.<br>위 입력칸에서 할 일을 추가할 수 있어요.</span>
       </p>
     </div>
@@ -117,43 +122,17 @@
         <button type="button" data-h="60">아주 넓게</button>
       </div>
 
-      <h3>투두메이트 연결</h3>
-      <p class="muted small">한 번만 설정해 두면, <b>가져오기</b>를 누를 때마다 투두메이트의 오늘 할 일이 하루로 들어와요. 투두메이트 웹을 잠깐 거쳤다가 자동으로 돌아와요.</p>
-
+      <h3>연동 상태</h3>
       <div class="status small">
-        <div><span>Userscripts</span><b id="stUser"></b></div>
-        <div><span>마지막 가져오기</span><b id="stLast"></b></div>
-        <div><span>가져온 할 일</span><b id="stCount"></b></div>
+        <div data-web hidden><span>투두메이트 웹 연결</span><b id="stUser"></b></div>
+        <div data-web hidden><span>마지막 가져오기</span><b id="stLast"></b></div>
+        <div data-web hidden><span>가져온 할 일</span><b id="stCount"></b></div>
         <div><span>아이폰 캘린더</span><b id="stCal"></b></div>
         <div><span>폰·컴퓨터 같이 쓰기</span><b id="stCloud"></b></div>
       </div>
       <details id="stListWrap" class="more" hidden>
         <summary>가져온 할 일 목록 보기</summary>
         <ol id="stList" class="small plain"></ol>
-      </details>
-
-      <p class="small"><b>처음 한 번만 하면 돼요</b></p>
-      <ol class="steps small">
-        <li>App Store에서 <a href="https://apps.apple.com/app/userscripts/id1463298887" target="_blank" rel="noopener"><b>Userscripts</b></a> 앱을 설치해요 (무료).</li>
-        <li>아이폰 <b>설정</b> › 앱 › <b>Safari</b> › 확장 프로그램 › <b>Userscripts</b>를 켜고, <b>모든 웹 사이트</b>를 허용해요.</li>
-        <li><a href="haru.user.js" target="_blank"><b>스크립트 열기</b></a>를 누르고, 사파리 주소창 왼쪽의 <b>퍼즐 모양</b> › Userscripts › <b>설치</b>를 눌러요.</li>
-        <li>사파리에서 todomate.net에 로그인해 둬요.</li>
-      </ol>
-      <p id="userscriptOk" class="small" hidden>Userscripts 연결됨 ✓</p>
-      <label class="toggle small"><input type="checkbox" id="autoImport"> 하루를 열 때마다 자동으로 가져오기</label>
-      <div class="row"><button id="importNow" type="button" class="primary">지금 가져오기</button></div>
-      <p class="muted small">처음 가져올 때만 투두메이트 화면에 안내가 나와요. 안내대로 할 일을 손가락으로 눌러 알려 주세요 (완료 안 한 것 하나, 완료한 것 하나).</p>
-
-      <details class="more">
-        <summary>투두메이트를 끄면 자동으로 가져오기</summary>
-        <p class="muted small">투두메이트 앱을 끌 때마다 하루가 알아서 최신 할 일을 가져와요. 아이폰 <b>단축어</b> 앱에서 한 번만 만들어 두면 돼요.</p>
-        <ol class="steps small">
-          <li><button id="copySyncUrl" type="button" class="primary">주소 복사</button></li>
-          <li><b>단축어</b> 앱 › 아래쪽 <b>자동화</b> › <b>+</b> › <b>앱</b></li>
-          <li><b>투두메이트</b>를 고르고 <b>닫힘</b>만 체크해요. <b>즉시 실행</b>을 고르고, 실행 알림은 꺼요.</li>
-          <li><b>새로운 빈 자동화</b> › <b>동작 추가</b> › <b>URL 열기</b>에 복사한 주소를 붙여넣어요.</li>
-        </ol>
-        <p class="muted small">끌 때마다 사파리가 잠깐 열렸다가 가져와요.</p>
       </details>
 
       <details class="more">
@@ -170,25 +149,6 @@
       </details>
 
       <details class="more">
-        <summary>다른 방법: 북마크 버튼</summary>
-        <p class="muted small">Userscripts 없이 쓰는 방법이에요. 가져오고 싶을 때마다 직접 눌러야 해요.</p>
-        <ol class="steps small">
-          <li><button id="copyButton" type="button" class="primary">버튼 코드 복사</button></li>
-          <li>사파리 공유 버튼 › <b>북마크 추가</b> › 이름을 <b>하루로 보내기</b>로 해요.</li>
-          <li>북마크를 편집해서 주소를 모두 지우고 복사한 코드를 붙여넣어요.</li>
-          <li>todomate.net에서 주소창에 <b>하루</b>를 입력하고 <b>하루로 보내기</b>를 눌러요.</li>
-        </ol>
-        <textarea id="codeBox" rows="3" readonly hidden></textarea>
-      </details>
-
-      <details class="more">
-        <summary>다른 방법: 글자로 붙여넣기</summary>
-        <p class="muted small">할 일 목록을 직접 붙여넣어 쓰거나 시험해 볼 수 있어요. 한 줄에 하나씩 적고, 앞에 ☑를 붙이면 완료로 봐요.</p>
-        <textarea id="source" rows="6" placeholder="영어 단어&#10;☑ 운동&#10;장보기"></textarea>
-        <div class="row"><button id="pasteApply" type="button" class="primary">반영</button></div>
-      </details>
-
-      <details class="more">
         <summary>폰과 컴퓨터에서 같이 쓰기</summary>
         <div id="cloudOff">
           <p class="muted small">두 기기에서 같은 계획을 보고 싶을 때 켜요. 계획이 내 GitHub의 비공개 저장 공간(Gist)에 저장돼요. GitHub 토큰(gist 권한)이나, 다른 기기에서 복사한 연결 코드를 넣어 주세요.</p>
@@ -202,6 +162,37 @@
           연결됨 · <button id="cloudCopy" type="button" class="link">연결 코드 복사</button>
           · <button id="cloudDisconnect" type="button" class="link muted">해제</button>
         </p>
+      </details>
+
+      <details class="more">
+        <summary>투두메이트 웹에서 가져오기</summary>
+        <p class="muted small">투두메이트 웹(데스크톱)은 프리미엄이 필요하고, 구독하지 않아도 <b>모바일 앱에서 광고를 보면</b> 열 수 있어요. 웹이 열려 있을 때만 켜세요. 켜면 맨 위에 <b>가져오기</b> 버튼이 나타나요.</p>
+        <label class="toggle small"><input type="checkbox" id="webImport"> 투두메이트 웹에서 가져오기 사용</label>
+        <p class="small"><b>처음 한 번만 하면 돼요</b></p>
+        <ol class="steps small">
+          <li>App Store에서 <a href="https://apps.apple.com/app/userscripts/id1463298887" target="_blank" rel="noopener"><b>Userscripts</b></a> 앱을 설치해요 (무료).</li>
+          <li>아이폰 <b>설정</b> › 앱 › <b>Safari</b> › 확장 프로그램 › <b>Userscripts</b>를 켜고, <b>모든 웹 사이트</b>를 허용해요.</li>
+          <li><a href="haru.user.js" target="_blank"><b>스크립트 열기</b></a>를 누르고, 사파리 주소창 왼쪽의 <b>퍼즐 모양</b> › Userscripts › <b>설치</b>를 눌러요.</li>
+          <li>사파리에서 todomate.net에 로그인해 둬요. 처음 가져올 때 안내대로 할 일을 손가락으로 눌러 알려 주세요.</li>
+        </ol>
+        <p id="userscriptOk" class="small" hidden>Userscripts 연결됨 ✓</p>
+        <label class="toggle small"><input type="checkbox" id="autoImport"> 하루를 열 때마다 자동으로 가져오기</label>
+        <div class="row"><button id="importNow" type="button" class="primary">지금 가져오기</button></div>
+
+        <p class="small"><b>투두메이트를 끄면 자동으로 가져오기</b></p>
+        <ol class="steps small">
+          <li><button id="copySyncUrl" type="button" class="primary">주소 복사</button></li>
+          <li><b>단축어</b> 앱 › 아래쪽 <b>자동화</b> › <b>+</b> › <b>앱</b> › <b>투두메이트</b> › <b>닫힘</b>만 체크 › <b>즉시 실행</b></li>
+          <li><b>새로운 빈 자동화</b> › <b>동작 추가</b> › <b>URL 열기</b>에 복사한 주소를 붙여넣어요.</li>
+        </ol>
+
+        <p class="small"><b>Userscripts 없이: 북마크 버튼</b></p>
+        <ol class="steps small">
+          <li><button id="copyButton" type="button" class="primary">버튼 코드 복사</button></li>
+          <li>사파리 공유 버튼 › <b>북마크 추가</b> › 이름을 <b>하루로 보내기</b>로 하고, 주소를 복사한 코드로 바꿔요.</li>
+          <li>todomate.net에서 주소창에 <b>하루</b>를 입력하고 <b>하루로 보내기</b>를 눌러요.</li>
+        </ol>
+        <textarea id="codeBox" rows="3" readonly hidden></textarea>
       </details>
 
     </form>

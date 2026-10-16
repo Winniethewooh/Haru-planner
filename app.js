@@ -1,5 +1,5 @@
 (function () {
-  const { SLOTS, currentSlot, addDays, addMonths, weekOf, monthWeeks, addManual, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
+  const { SLOTS, currentSlot, addManualMany, carryOver, addDays, addMonths, weekOf, monthWeeks, addManual, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
   const Cloud = window.Cloud;
   const TL = window.Timeline;
   const $ = s => document.querySelector(s);
@@ -21,7 +21,9 @@
   let openId = null;
   let noticeTimer = null;
   const settings = read('dayplan:settings', {});
-  if (settings.autoImport === undefined) settings.autoImport = true;
+  if (settings.autoImport === undefined) settings.autoImport = false;   // 투두메이트 웹 연동은 기본으로 꺼 둠
+  // 이미 투두메이트 웹 연동을 설정해 둔 경우에는 가져오기 버튼을 계속 보여줌
+  if (settings.webImport === undefined) settings.webImport = !!(read('dayplan:userscript', false) || read('dayplan:grabReady', false));
 
   function load(d) { return read('dayplan:' + d, { tasks: [], grid: {}, source: '', syncedAt: 0, todoAt: 0, updatedAt: 0, checkedAt: 0 }); }
   function save() { write('dayplan:' + day, state); }
@@ -55,7 +57,7 @@
   // 투두메이트 페이지(유저스크립트·북마크릿)가 #items=… 로 넘겨준 목록
   // #sync 는 단축어 등에서 "지금 가져오기"를 요청할 때
   function takeHash() {
-    if (location.hash === '#sync') {
+    if (location.hash === '#sync' && settings.webImport) {
       history.replaceState(null, '', location.pathname + location.search);
       // 투두메이트를 여러 번 연달아 닫아도 1분 안에는 한 번만 다녀옴
       const last = Math.max(state.syncedAt || 0, read('dayplan:importAt', 0));
@@ -100,7 +102,7 @@
 
   // 하루를 열 때 마지막으로 가져온 지 오래됐으면 자동으로 다녀옴 (실패해도 15분 안엔 다시 안 함)
   function autoImport() {
-    if (!settings.autoImport || !read('dayplan:userscript', false)) return;
+    if (!settings.webImport || !settings.autoImport || !read('dayplan:userscript', false)) return;
     if (document.visibilityState !== 'visible' || sheet.open || day !== today()) return;
     const last = Math.max(state.syncedAt || 0, read('dayplan:importAt', 0));
     if (Date.now() - last > AUTO_MS) startImport();
@@ -185,8 +187,11 @@
     const at = Math.max(state.syncedAt || 0, state.checkedAt || 0);
     $('#syncInfo').textContent = at ? ago(at) : '';
     const isToday = day === today();
+    $('#importBtn').hidden = !settings.webImport;
+    $('#syncInfo').hidden = !settings.webImport;
     $('#importBtn').classList.toggle('stale', isToday && (!at || Date.now() - at > STALE_MS));
     renderCal();
+    renderCarry();
 
     const now = isToday ? currentSlot(new Date()) : null;      // 지난·다음 날에는 '지금' 표시 없음
     const nowIdx = SLOTS.findIndex(s => s.id === now);
@@ -769,6 +774,43 @@
     return wrap;
   }
 
+  // 여러 줄을 붙여넣으면 한 번에 여러 개 추가 (메모·카톡에서 복사한 목록)
+  $('#addInput').addEventListener('paste', e => {
+    const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (!/\r?\n/.test(text.trim())) return;
+    e.preventDefault();
+    const r = addManualMany(state.tasks, text);
+    if (!r) return;
+    state.tasks = r.tasks;
+    clearAdd('#addForm', '#addInput');
+    touch();
+    render();
+    notify(`${r.added.length}개 추가했어요`);
+  });
+
+  // 전날 못 끝낸 할 일 이어하기 (오늘 이후 날짜를 볼 때)
+  const prevItems = () => {
+    if (day < todayKey) return [];
+    const prev = read('dayplan:' + addDays(day, -1), null);
+    return prev && Array.isArray(prev.tasks) ? carryOver(prev.tasks, state.tasks) : [];
+  };
+  function renderCarry() {
+    const items = read('dayplan:carry:' + day, false) ? [] : prevItems();
+    $('#carry').hidden = items.length === 0;
+    if (items.length) $('#carryGo').textContent = `전날 못 끝낸 할 일 ${items.length}개 가져오기`;
+  }
+  $('#carryGo').onclick = () => {
+    const items = prevItems();
+    write('dayplan:carry:' + day, true);
+    if (items.length) {
+      state.tasks = [...state.tasks, ...items];
+      touch();
+      notify(`${items.length}개 가져왔어요`);
+    }
+    render();
+  };
+  $('#carryX').onclick = () => { write('dayplan:carry:' + day, true); renderCarry(); };
+
   // 입력 중일 때만 '추가' 글자를 보여줌
   for (const [form, input] of [['#addForm', '#addInput'], ['#pickAdd', '#pickAddInput']]) {
     $(input).addEventListener('input', () => $(form).classList.toggle('has', !!$(input).value.trim()));
@@ -820,10 +862,10 @@
   const sheet = $('#sheet');
   function openSheet() {
     $('#autoImport').checked = settings.autoImport;
+    $('#webImport').checked = settings.webImport;
     showRowH();
     showStatus();
     $('#userscriptOk').hidden = !read('dayplan:userscript', false);
-    $('#source').value = state.source;
     renderCloud();
     if (!sheet.open) sheet.showModal();
   }
@@ -857,6 +899,12 @@
     }
   };
   $('#sheet form').addEventListener('submit', e => e.preventDefault());
+  $('#webImport').onchange = e => {
+    settings.webImport = e.target.checked;
+    write('dayplan:settings', settings);
+    showStatus();
+    render();
+  };
   $('#autoImport').onchange = e => {
     settings.autoImport = e.target.checked;
     write('dayplan:settings', settings);
@@ -864,6 +912,7 @@
   // 연동 점검: 가져오기가 실제로 됐는지 눈으로 확인
   function showStatus() {
     const li = state.lastImport;
+    document.querySelectorAll('.status [data-web]').forEach(r => { r.hidden = !settings.webImport; });
     $('#stUser').textContent = read('dayplan:userscript', false) ? '연결됨 ✓' : '아직 확인 안 됨';
     $('#stLast').textContent = li ? `${ago(li.at)} · ${li.via === 'userscript' ? 'Userscripts' : '북마크 버튼'}` : '아직 없음';
     $('#stCount').textContent = li ? `할 일 ${li.items.length}개 · 완료 ${li.items.filter(x => x.done).length}개` : '-';
@@ -893,7 +942,6 @@
       if (!down && !sel) renderTime();
     };
   });
-  $('#emptyImport').onclick = openSheet;
   $('#syncInfo').onclick = openSheet;
   $('#settingsBtn').onclick = openSheet;
   $('#copyButton').onclick = async () => {
@@ -913,10 +961,6 @@
     } catch {
       notify('코드를 만들지 못했어요');
     }
-  };
-  $('#pasteApply').onclick = () => {
-    applyParsed(parse($('#source').value), $('#source').value);
-    closeSheet();
   };
   $('#sheetClose').onclick = closeSheet;
 
