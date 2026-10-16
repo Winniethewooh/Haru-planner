@@ -361,7 +361,7 @@
     const sums = TL.totals(state.grid);
     const box = $('#pickList');
     box.innerHTML = '';
-    $('#pickAddInput').value = '';
+    clearAdd('#pickAdd', '#pickAddInput');
     $('#pickTitle').textContent = `${timeText(a)} – ${timeText(b + 1)}`;
     $('#pickSub').textContent = TL.fmt((b - a + 1) * TL.CELL_MIN);
 
@@ -405,7 +405,7 @@
   $('#pickAdd').addEventListener('submit', e => {
     e.preventDefault();
     const r = addManual(state.tasks, $('#pickAddInput').value);
-    $('#pickAddInput').value = '';
+    clearAdd('#pickAdd', '#pickAddInput');
     if (!r || !sel) return;
     state.tasks = r.tasks;
     assignRange(r.task.id);
@@ -634,11 +634,17 @@
     return wrap;
   }
 
+  // 입력 중일 때만 '추가' 글자를 보여줌
+  for (const [form, input] of [['#addForm', '#addInput'], ['#pickAdd', '#pickAddInput']]) {
+    $(input).addEventListener('input', () => $(form).classList.toggle('has', !!$(input).value.trim()));
+  }
+  const clearAdd = (form, input) => { $(input).value = ''; $(form).classList.remove('has'); };
+
   // 계획 탭에서 직접 추가: 미배정에 들어감
   $('#addForm').addEventListener('submit', e => {
     e.preventDefault();
     const r = addManual(state.tasks, $('#addInput').value);
-    $('#addInput').value = '';
+    clearAdd('#addForm', '#addInput');
     if (!r) return;
     state.tasks = r.tasks;
     touch();
