@@ -1,0 +1,144 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const P = require('../planner.js');
+
+test('parse: 불릿, 체크 표시, 카테고리', () => {
+  const r = P.parse('공부:\n- ☑ 영어 단어\n☐ 수학 문제\n\n# 운동\n• 러닝 5km\n1. 스트레칭\n[x] 폼롤러');
+  assert.deepStrictEqual(r.map(x => [x.title, x.cat, x.done]), [
+    ['영어 단어', '공부', true],
+    ['수학 문제', '공부', false],
+    ['러닝 5km', '운동', null],
+    ['스트레칭', '운동', null],
+    ['폼롤러', '운동', true],
+  ]);
+});
+
+test('parse: 중복 제목은 키로 구분', () => {
+  const r = P.parse('물 마시기\n물 마시기');
+  assert.notStrictEqual(r[0].key, r[1].key);
+});
+
+test('merge: 슬롯 유지, 추가/삭제/완료 감지', () => {
+  let m = P.merge([], P.parse('A\nB\nC'));
+  assert.strictEqual(m.added, 3);
+  const tasks = m.tasks.map((t, i) => ({ ...t, slot: ['am', 'pm', null][i], fresh: false }));
+  m = P.merge(tasks, P.parse('☑ A\nC\nD'));
+  assert.deepStrictEqual([m.added, m.removed, m.completed], [1, 1, 1]);
+  const byTitle = Object.fromEntries(m.tasks.map(t => [t.title, t]));
+  assert.strictEqual(byTitle.A.slot, 'am');
+  assert.strictEqual(byTitle.A.done, true);
+  assert.strictEqual(byTitle.B.gone, true);
+  assert.strictEqual(byTitle.B.slot, 'pm');
+  assert.strictEqual(byTitle.D.slot, null);
+  assert.strictEqual(byTitle.D.fresh, true);
+});
+
+test('merge: 삭제됐던 항목이 돌아오면 슬롯 그대로 복구', () => {
+  let tasks = P.merge([], P.parse('A')).tasks.map(t => ({ ...t, slot: 'eve', fresh: false }));
+  tasks = P.merge(tasks, P.parse('')).tasks;
+  const m = P.merge(tasks, P.parse('A'));
+  assert.strictEqual(m.tasks[0].gone, false);
+  assert.strictEqual(m.tasks[0].slot, 'eve');
+  assert.strictEqual(m.added, 1);
+});
+
+test('merge: 표시 없는 줄은 로컬 완료 상태 유지', () => {
+  const tasks = P.merge([], P.parse('A')).tasks.map(t => ({ ...t, done: true, fresh: false }));
+  const m = P.merge(tasks, P.parse('A'));
+  assert.strictEqual(m.tasks[0].done, true);
+  assert.ok(!P.hasChanges(m));
+});
+
+test('merge: 인식 오차로 글자가 조금 달라도 같은 할 일로 보고 슬롯 유지', () => {
+  const tasks = P.merge([], P.parse('영어 단어 30개 외우기\n장보기')).tasks.map(t => ({ ...t, slot: 'am', fresh: false }));
+  const m = P.merge(tasks, P.parse('영어 단이 30개 외우기\n장보기\n운동'));
+  assert.deepStrictEqual([m.added, m.removed], [1, 0]);
+  const eng = m.tasks.find(t => t.title.startsWith('영어'));
+  assert.strictEqual(eng.slot, 'am');
+  assert.strictEqual(eng.title, '영어 단이 30개 외우기');
+});
+
+test('merge: 완전히 다른 짧은 제목은 짝짓지 않음', () => {
+  const tasks = P.merge([], P.parse('운동')).tasks.map(t => ({ ...t, fresh: false }));
+  const m = P.merge(tasks, P.parse('독서'));
+  assert.deepStrictEqual([m.added, m.removed], [1, 1]);
+});
+
+test('merge: 띄어쓰기만 다르면 같은 할 일', () => {
+  const tasks = P.merge([], P.parse('친구에게 연락하기')).tasks.map(t => ({ ...t, slot: 'eve', fresh: false }));
+  const m = P.merge(tasks, P.parse('친 구에게 연락하기'));
+  assert.ok(!P.hasChanges(m));
+  assert.strictEqual(m.tasks[0].slot, 'eve');
+});
+
+test('similarity', () => {
+  assert.strictEqual(P.similarity('a b', 'ab'), 1);
+  assert.ok(P.similarity('영어 단어', '영어 단이') >= 0.7);
+  assert.ok(P.similarity('운동', '독서') < 0.7);
+});
+
+test('fromItems: 확장 데이터 변환', () => {
+  const r = P.fromItems([{ title: ' A ', done: true }, { title: '' }, { title: 'B', done: null }, { title: 'A' }]);
+  assert.deepStrictEqual(r.map(x => [x.title, x.done, x.key]), [['A', true, 'a'], ['B', null, 'b'], ['A', null, 'a#2']]);
+});
+
+test('reconcile: 투두메이트 변경은 병합하고 올려야 함', () => {
+  const state = { tasks: P.merge([], P.parse('A\nB')).tasks.map(t => ({ ...t, slot: 'am' })), todoAt: 1, updatedAt: 5 };
+  const todo = { date: 'D', items: [{ title: 'A', done: true }, { title: 'C' }], updatedAt: 10, checkedAt: 12 };
+  const r = P.reconcile(state, { todo }, 'D', 99);
+  assert.ok(r.push);
+  assert.deepStrictEqual([r.result.added, r.result.removed, r.result.completed], [1, 1, 1]);
+  assert.strictEqual(r.state.todoAt, 10);
+  assert.strictEqual(r.state.checkedAt, 12);
+  assert.strictEqual(r.state.updatedAt, 99);
+  assert.strictEqual(r.state.tasks.find(t => t.title === 'A').slot, 'am');
+  // 같은 데이터를 다시 받으면 아무 일 없음
+  const again = P.reconcile(r.state, { todo }, 'D', 100);
+  assert.ok(!again.push && !again.result);
+});
+
+test('reconcile: 다른 기기의 더 새 계획을 받고, 이미 반영된 투두는 다시 병합하지 않음', () => {
+  const local = { tasks: [], todoAt: 0, updatedAt: 5 };
+  const plan = { date: 'D', tasks: [{ id: 'x', key: 'a', title: 'A', slot: 'pm' }], todoAt: 10, updatedAt: 20 };
+  const todo = { date: 'D', items: [{ title: 'A' }], updatedAt: 10 };
+  const r = P.reconcile(local, { plan, todo }, 'D', 30);
+  assert.ok(!r.push);
+  assert.strictEqual(r.state.tasks[0].slot, 'pm');
+});
+
+test('reconcile: 다른 날짜 데이터와 오래된 계획은 무시', () => {
+  const local = { tasks: [{ id: 'y', key: 'b', title: 'B' }], updatedAt: 50 };
+  const r = P.reconcile(local, {
+    plan: { date: 'D', tasks: [], updatedAt: 40 },
+    todo: { date: 'E', items: [{ title: 'Z' }], updatedAt: 60 },
+  }, 'D', 70);
+  assert.strictEqual(r.state, local);
+});
+
+test('dayOf: 새벽 2시 전은 전날', () => {
+  assert.strictEqual(P.dayOf(new Date(2026, 8, 30, 1)), '2026-09-29');
+  assert.strictEqual(P.dayOf(new Date(2026, 8, 30, 3)), '2026-09-30');
+});
+
+test('currentSlot', () => {
+  const at = h => P.currentSlot(new Date(2026, 0, 1, h));
+  assert.deepStrictEqual([at(1), at(3), at(8), at(13), at(19), at(23)], ['night', 'am', 'am', 'pm', 'eve', 'night']);
+});
+
+test('fromItems: 개수와 길이를 제한', () => {
+  const many = Array.from({ length: 500 }, (_, i) => ({ title: '할 일 ' + i }));
+  assert.strictEqual(P.fromItems(many).length, 300);
+  const [it] = P.fromItems([{ title: 'a'.repeat(1000), cat: 'c'.repeat(1000) }]);
+  assert.strictEqual(it.title.length, 200);
+  assert.strictEqual(it.cat.length, 50);
+  assert.deepStrictEqual(P.fromItems('악성'), []);
+});
+
+test('parseCal: 단축어 일정 텍스트', () => {
+  const r = P.parseCal('09:00-10:30 팀 미팅\n23:00-01:00 야간 작업\n00:00-00:00 종일 행사\n잘못된 줄\n25:00-26:00 이상한 시간\n9:05 ~ 9:35  점심 약속');
+  assert.deepStrictEqual(r, [
+    { from: 540, to: 630, title: '팀 미팅' },
+    { from: 1380, to: 1500, title: '야간 작업' },
+    { from: 545, to: 575, title: '점심 약속' },
+  ]);
+});

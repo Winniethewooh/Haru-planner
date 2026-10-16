@@ -1,0 +1,41 @@
+# main 에 올리면 테스트를 돌린 뒤 GitHub Pages 로 배포
+# 앱에 필요한 파일만 골라서 올림 (test/, scripts/ 등은 배포하지 않음)
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test
+      - name: Collect site files
+        run: |
+          mkdir _site
+          cp index.html style.css app.js planner.js timeline.js cloud.js sw.js manifest.webmanifest icon.svg haru.user.js grab.js _site/
+          cp -r fonts _site/
+          mkdir _site/extension
+          cp extension/extractor.js _site/extension/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "하루 · 투두메이트 연동",
+  "version": "0.1.0",
+  "description": "투두메이트 웹의 오늘 할 일을 하루 플래너로 자동 전송합니다.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "하루"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://todomate.net/*",
+        "https://*.todomate.net/*"
+      ],
+      "js": [
+        "extractor.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

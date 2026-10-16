@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)">
+  <title>하루</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1 id="date"></h1>
+      <span class="sync">
+        <button id="syncInfo" class="ghost" aria-label="마지막으로 가져온 시각 · 설정"></button>
+        <button id="importBtn" class="ghost">가져오기</button>
+        <button id="settingsBtn" class="ghost" aria-label="설정">···</button>
+      </span>
+    </header>
+
+    <div id="notice" class="notice" hidden>
+      <span id="noticeText"></span>
+      <button id="noticeClose" class="link muted">닫기</button>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="plan" class="on">계획</button>
+      <button role="tab" data-tab="time">시간표</button>
+    </nav>
+
+    <div id="planView">
+      <section id="inbox" class="slot" data-slot="">
+        <h2>미배정 <span class="count"></span></h2>
+        <ul></ul>
+      </section>
+
+      <div id="slots"></div>
+
+      <p id="empty" class="empty" hidden>
+        투두메이트의 오늘 할 일을<br>
+        <button id="emptyImport" class="link">가져와서 시작하기</button>
+      </p>
+    </div>
+
+    <div id="timeView" hidden>
+      <div id="grid" class="grid" aria-label="10분 단위 시간표"></div>
+      <p id="gridHint" class="muted small hint"></p>
+    </div>
+  </main>
+
+  <div id="pick" class="pick" hidden>
+    <div class="pick-backdrop"></div>
+    <div class="pick-sheet" role="dialog" aria-labelledby="pickTitle">
+      <h3 id="pickTitle"></h3>
+      <p id="pickSub" class="muted small"></p>
+      <div id="pickList"></div>
+      <div class="row">
+        <button id="pickClear" type="button" class="ghost" hidden>이 시간 비우기</button>
+        <button id="pickCancel" type="button" class="ghost">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="sheet">
+    <form method="dialog">
+      <div class="sheethead">
+        <h2>설정</h2>
+        <button id="sheetClose" type="button" class="ghost">닫기</button>
+      </div>
+
+      <h3>시간표 줄 높이</h3>
+      <div id="rowChoice" class="choice" role="group" aria-label="시간표 줄 높이">
+        <button type="button" data-h="24">좁게</button>
+        <button type="button" data-h="32">보통</button>
+        <button type="button" data-h="44">넓게</button>
+        <button type="button" data-h="60">아주 넓게</button>
+      </div>
+
+      <h3>투두메이트 연결</h3>
+      <p class="muted small">한 번만 설정해 두면, <b>가져오기</b>를 누를 때마다 투두메이트의 오늘 할 일이 하루로 들어와요. 투두메이트 웹을 잠깐 거쳤다가 자동으로 돌아와요.</p>
+
+      <div class="status small">
+        <div><span>Userscripts</span><b id="stUser"></b></div>
+        <div><span>마지막 가져오기</span><b id="stLast"></b></div>
+        <div><span>가져온 할 일</span><b id="stCount"></b></div>
+        <div><span>아이폰 캘린더</span><b id="stCal"></b></div>
+        <div><span>폰·컴퓨터 같이 쓰기</span><b id="stCloud"></b></div>
+      </div>
+      <details id="stListWrap" class="more" hidden>
+        <summary>가져온 할 일 목록 보기</summary>
+        <ol id="stList" class="small plain"></ol>
+      </details>
+
+      <p class="small"><b>처음 한 번만 하면 돼요</b></p>
+      <ol class="steps small">
+        <li>App Store에서 <a href="https://apps.apple.com/app/userscripts/id1463298887" target="_blank" rel="noopener"><b>Userscripts</b></a> 앱을 설치해요 (무료).</li>
+        <li>아이폰 <b>설정</b> › 앱 › <b>Safari</b> › 확장 프로그램 › <b>Userscripts</b>를 켜고, <b>모든 웹 사이트</b>를 허용해요.</li>
+        <li><a href="haru.user.js" target="_blank"><b>스크립트 열기</b></a>를 누르고, 사파리 주소창 왼쪽의 <b>퍼즐 모양</b> › Userscripts › <b>설치</b>를 눌러요.</li>
+        <li>사파리에서 todomate.net에 로그인해 둬요.</li>
+      </ol>
+      <p id="userscriptOk" class="small" hidden>Userscripts 연결됨 ✓</p>
+      <label class="toggle small"><input type="checkbox" id="autoImport"> 하루를 열 때마다 자동으로 가져오기</label>
+      <div class="row"><button id="importNow" type="button" class="primary">지금 가져오기</button></div>
+      <p class="muted small">처음 가져올 때만 투두메이트 화면에 안내가 나와요. 안내대로 할 일을 손가락으로 눌러 알려 주세요 (완료 안 한 것 하나, 완료한 것 하나).</p>
+
+      <details class="more">
+        <summary>투두메이트를 끄면 자동으로 가져오기</summary>
+        <p class="muted small">투두메이트 앱을 끌 때마다 하루가 알아서 최신 할 일을 가져와요. 아이폰 <b>단축어</b> 앱에서 한 번만 만들어 두면 돼요.</p>
+        <ol class="steps small">
+          <li><button id="copySyncUrl" type="button" class="primary">주소 복사</button></li>
+          <li><b>단축어</b> 앱 › 아래쪽 <b>자동화</b> › <b>+</b> › <b>앱</b></li>
+          <li><b>투두메이트</b>를 고르고 <b>닫힘</b>만 체크해요. <b>즉시 실행</b>을 고르고, 실행 알림은 꺼요.</li>
+          <li><b>새로운 빈 자동화</b> › <b>동작 추가</b> › <b>URL 열기</b>에 복사한 주소를 붙여넣어요.</li>
+        </ol>
+        <p class="muted small">끌 때마다 사파리가 잠깐 열렸다가 가져와요.</p>
+      </details>
+
+      <details class="more">
+        <summary>아이폰 캘린더 일정 보기</summary>
+        <p class="muted small">캘린더의 오늘 일정을 시간표에 <b>회색 칸</b>으로 보여줘요. 단축어 앱이 일정을 넘겨주는 방식이라 계정 연결은 필요 없고, 일정은 이 폰 안에만 저장돼요.</p>
+        <ol class="steps small">
+          <li><button id="copyCalUrl" type="button" class="primary">주소 복사</button></li>
+          <li><b>단축어</b> 앱에서 새 단축어를 만들고 <b>캘린더 이벤트 찾기</b>를 추가해요 (시작일이 오늘).</li>
+          <li><b>각 항목에 대해 반복</b> 안에 <b>텍스트</b>를 넣고 이렇게 적어요: <code>09:00-10:30 팀 미팅</code> (시각은 <code>HH:mm</code> 형식으로, 일정 이름이 뒤에 와요).</li>
+          <li>반복이 끝나면 <b>텍스트 결합</b>(새로운 줄) › <b>URL 인코딩</b>을 해요.</li>
+          <li><b>URL</b> 동작에 복사한 주소를 쓰고 그 뒤에 인코딩한 텍스트를 붙인 뒤, <b>URL 열기</b>를 해요.</li>
+        </ol>
+        <p class="muted small">종일 일정과 새벽 2~6시 일정은 보이지 않아요.</p>
+      </details>
+
+      <details class="more">
+        <summary>다른 방법: 북마크 버튼</summary>
+        <p class="muted small">Userscripts 없이 쓰는 방법이에요. 가져오고 싶을 때마다 직접 눌러야 해요.</p>
+        <ol class="steps small">
+          <li><button id="copyButton" type="button" class="primary">버튼 코드 복사</button></li>
+          <li>사파리 공유 버튼 › <b>북마크 추가</b> › 이름을 <b>하루로 보내기</b>로 해요.</li>
+          <li>북마크를 편집해서 주소를 모두 지우고 복사한 코드를 붙여넣어요.</li>
+          <li>todomate.net에서 주소창에 <b>하루</b>를 입력하고 <b>하루로 보내기</b>를 눌러요.</li>
+        </ol>
+        <textarea id="codeBox" rows="3" readonly hidden></textarea>
+      </details>
+
+      <details class="more">
+        <summary>다른 방법: 글자로 붙여넣기</summary>
+        <p class="muted small">할 일 목록을 직접 붙여넣어 쓰거나 시험해 볼 수 있어요. 한 줄에 하나씩 적고, 앞에 ☑를 붙이면 완료로 봐요.</p>
+        <textarea id="source" rows="6" placeholder="영어 단어&#10;☑ 운동&#10;장보기"></textarea>
+        <div class="row"><button id="pasteApply" type="button" class="primary">반영</button></div>
+      </details>
+
+      <details class="more">
+        <summary>폰과 컴퓨터에서 같이 쓰기</summary>
+        <div id="cloudOff">
+          <p class="muted small">두 기기에서 같은 계획을 보고 싶을 때 켜요. 계획이 내 GitHub의 비공개 저장 공간(Gist)에 저장돼요. GitHub 토큰(gist 권한)이나, 다른 기기에서 복사한 연결 코드를 넣어 주세요.</p>
+          <div class="inline">
+            <input id="cloudInput" type="password" autocomplete="off" placeholder="ghp_… 또는 haru1.…">
+            <button id="cloudConnect" type="button" class="primary">연결</button>
+          </div>
+          <p id="cloudError" class="small error" hidden></p>
+        </div>
+        <p id="cloudOn" class="small" hidden>
+          연결됨 · <button id="cloudCopy" type="button" class="link">연결 코드 복사</button>
+          · <button id="cloudDisconnect" type="button" class="link muted">해제</button>
+        </p>
+      </details>
+
+    </form>
+  </dialog>
+
+  <script src="planner.js"></script>
+  <script src="timeline.js"></script>
+  <script src="cloud.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

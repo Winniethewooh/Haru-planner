@@ -1,0 +1,10 @@
+{
+  "name": "dayofplan",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve -l 5173 .",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build-userscript.js"
+  },
+  "version": "0.4.0"
+}

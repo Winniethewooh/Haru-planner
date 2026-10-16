@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root { --bg: #fff; --fg: #111; --muted: #999; --soft: #f4f4f4; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #777; --soft: #1c1c1c; } }
+    body { margin: 0; width: 280px; padding: 18px; background: var(--bg); color: var(--fg);
+      font: 13px/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+    h1 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    .muted { color: var(--muted); }
+    .error { color: #d33; }
+    input { width: 100%; box-sizing: border-box; padding: 8px 10px; font: inherit; color: inherit;
+      background: var(--soft); border: 0; border-radius: 8px; outline: none; margin-bottom: 8px; }
+    button { font: inherit; cursor: pointer; border: 0; border-radius: 99px; padding: 6px 14px;
+      background: var(--fg); color: var(--bg); }
+    button.ghost { background: none; color: var(--muted); padding: 6px 0; }
+    .row { display: flex; gap: 14px; align-items: center; }
+    .small { font-size: 12px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>하루</h1>
+
+  <section id="off">
+    <p class="muted">플래너의 동기화 창에서 복사한 연결 코드를 붙여넣으세요.</p>
+    <input id="code" type="password" placeholder="haru1.…">
+    <button id="save">연결</button>
+    <p id="codeError" class="error" hidden></p>
+  </section>
+
+  <section id="on" hidden>
+    <p id="status"></p>
+    <p id="error" class="error" hidden></p>
+    <p class="muted small">투두메이트 탭을 열어 두면 6시간마다 자동으로 보내요.</p>
+    <div class="row">
+      <button id="now">지금 보내기</button>
+      <button id="pick" class="ghost">할 일 위치 지정</button>
+    </div>
+    <p class="muted" style="margin-top:14px"><button id="disconnect" class="ghost">연결 해제</button></p>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
