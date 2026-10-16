@@ -97,9 +97,10 @@
     let nodes;
     try { nodes = document.querySelectorAll(cfg.selector); } catch { return []; }
     return [...nodes]
+      .filter(n => !n.closest('style, script, noscript, template')) // 코드 조각은 할 일이 아님
       .filter(n => n.getClientRects().length) // 아직 그려지지 않은(숨겨진) 항목은 제외
       .map(n => ({ title: titleOf(n), done: isDone(n, cfg) }))
-      .filter(it => it.title);
+      .filter(it => it.title && !/[{}]/.test(it.title));
   }
 
   root.HaruExtractor = { findItem, findItemStrict, selectorFor, tokens, learnDone, isDone, titleOf, extract };

@@ -213,9 +213,11 @@
   // 확장이 보낸 [{title, done}] → parse()와 같은 형태
   // 주소창(#items=…)으로도 들어올 수 있어서 개수와 길이를 제한함
   const MAX_ITEMS = 300;
+  // 화면의 CSS·스크립트 조각이 할 일로 잘못 읽힌 것을 거름
+  const looksLikeCode = t => /[{}]/.test(t) || /[a-z-]{3,}\s*:\s*[^;]{1,60};/i.test(t);
   function fromItems(items) {
     return withKeys((Array.isArray(items) ? items : [])
-      .filter(it => it && typeof it.title === 'string' && it.title.trim())
+      .filter(it => it && typeof it.title === 'string' && it.title.trim() && !looksLikeCode(it.title))
       .slice(0, MAX_ITEMS)
       .map(it => ({
         title: it.title.trim().slice(0, 200),

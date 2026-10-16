@@ -86,6 +86,7 @@
       write('dayplan:grabReady', true);
       if (via === 'userscript') write('dayplan:userscript', true);
       const parsed = fromItems(items);
+      if (!parsed.length) { notify('읽은 내용이 할 일처럼 보이지 않아 가져오지 않았어요'); return true; }
       state.lastImport = { at: Date.now(), via: via === 'userscript' ? 'userscript' : 'bookmarklet', items: parsed.map(p => ({ title: p.title, done: p.done })) };
       applyParsed(parsed, '');
     } catch {
@@ -899,6 +900,28 @@
     }
   };
   $('#sheet form').addEventListener('submit', e => e.preventDefault());
+  // 가져온(투두메이트) 항목만 모두 지움: 잘못 읽혀 들어온 항목을 정리할 때. 직접 추가한 항목은 남김.
+  let clearArmed = null;
+  $('#clearImported').onclick = () => {
+    const btn = $('#clearImported');
+    if (!clearArmed) {
+      btn.textContent = '정말 지울까요? 한 번 더 누르세요';
+      clearArmed = setTimeout(() => { clearArmed = null; btn.textContent = '가져온 항목 모두 지우기'; }, 4000);
+      return;
+    }
+    clearTimeout(clearArmed);
+    clearArmed = null;
+    btn.textContent = '가져온 항목 모두 지우기';
+    const keep = state.tasks.filter(t => t.manual);
+    const n = state.tasks.length - keep.length;
+    state.tasks = keep;
+    state.grid = TL.prune(state.grid, keep.map(t => t.id));
+    delete state.lastImport;
+    touch();
+    render();
+    showStatus();
+    notify(n ? `가져온 항목 ${n}개를 지웠어요` : '지울 항목이 없어요');
+  };
   $('#webImport').onchange = e => {
     settings.webImport = e.target.checked;
     write('dayplan:settings', settings);

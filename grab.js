@@ -155,6 +155,11 @@
   async function setup() {
     const item = await tapPick('완료하지 않은 할 일 하나를 탭하세요');
     if (!item) return close();
+    // 글자를 화면에 그림으로 그리는 사이트(Flutter 웹 등)는 목록 글자가 없어서 읽을 수 없음
+    const picked = X.titleOf(item);
+    if (!picked || /[{}]/.test(picked)) {
+      return show('이 화면에서는 할 일 글자를 읽을 수 없어요. 투두메이트 웹이 글자를 그림으로 그려서 보여주는 것 같아요.', [{ label: '닫기', primary: true, run: close }]);
+    }
     const next = { selector: X.selectorFor(item) };
     const done = await tapPick('이번엔 완료한 할 일 하나를 탭하세요', [{ label: '완료한 게 없어요', value: null }], item);
     if (done === undefined) return close();

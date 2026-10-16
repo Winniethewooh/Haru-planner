@@ -166,7 +166,7 @@
 
       <details class="more">
         <summary>투두메이트 웹에서 가져오기</summary>
-        <p class="muted small">투두메이트 웹(데스크톱)은 프리미엄이 필요하고, 구독하지 않아도 <b>모바일 앱에서 광고를 보면</b> 열 수 있어요. 웹이 열려 있을 때만 켜세요. 켜면 맨 위에 <b>가져오기</b> 버튼이 나타나요.</p>
+        <p class="muted small"><b>잘 안 될 수 있어요.</b> 투두메이트 웹은 글자를 화면에 그림으로 그려서, 목록 글자를 읽지 못하는 경우가 있어요. 그럴 땐 "이 화면에서는 할 일 글자를 읽을 수 없어요"라고 알려 주고 아무것도 가져오지 않아요. 웹은 프리미엄이 필요하고, 구독하지 않아도 모바일 앱에서 광고를 보면 열 수 있어요. 켜면 맨 위에 <b>가져오기</b> 버튼이 나타나요.</p>
         <label class="toggle small"><input type="checkbox" id="webImport"> 투두메이트 웹에서 가져오기 사용</label>
         <p class="small"><b>처음 한 번만 하면 돼요</b></p>
         <ol class="steps small">
@@ -178,6 +178,8 @@
         <p id="userscriptOk" class="small" hidden>Userscripts 연결됨 ✓</p>
         <label class="toggle small"><input type="checkbox" id="autoImport"> 하루를 열 때마다 자동으로 가져오기</label>
         <div class="row"><button id="importNow" type="button" class="primary">지금 가져오기</button></div>
+        <div class="row"><button id="clearImported" type="button" class="ghost">가져온 항목 모두 지우기</button></div>
+        <p class="muted small">잘못 읽혀서 들어온 항목을 정리할 때 써요. 지금 보고 있는 날의 가져온 항목만 지우고, 직접 추가한 항목은 남아요.</p>
 
         <p class="small"><b>투두메이트를 끄면 자동으로 가져오기</b></p>
         <ol class="steps small">

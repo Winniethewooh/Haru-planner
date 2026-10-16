@@ -222,3 +222,9 @@ test('carryOver: 전날 못 끝낸 할 일만 새 항목으로', () => {
   assert.deepStrictEqual(P.carryOver(prev, [{ title: '영어 단어' }, { title: '장보기' }]), []);   // 이미 있으면 가져오지 않음
   assert.deepStrictEqual(P.carryOver(null, cur), []);
 });
+
+test('fromItems: 화면의 CSS 코드가 잘못 읽힌 항목은 거름', () => {
+  const css = 'flutter-view flt-scene-host { font: normal normal 14px sans-serif;}flutter-view flt-semantics input[type=range] { appearance: none; -webkit-appearance: none; width: 100%; position: absolute; bor';
+  const r = P.fromItems([{ title: css }, { title: 'position: absolute; top: 0;' }, { title: '영어 단어' }, { title: '회의: 오후 3시' }, { title: '{ }' }]);
+  assert.deepStrictEqual(r.map(i => i.title), ['영어 단어', '회의: 오후 3시']);
+});
