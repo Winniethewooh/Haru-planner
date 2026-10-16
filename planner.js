@@ -140,6 +140,46 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  // ---- 날짜(YYYY-MM-DD) 계산: 주·달 달력용 (일요일 시작) ----
+  const pad2 = n => String(n).padStart(2, '0');
+  const keyOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+
+  function addDays(key, n) {
+    const d = parseKey(key);
+    d.setDate(d.getDate() + n);
+    return keyOf(d);
+  }
+
+  // 같은 날짜로 n달 이동 (없는 날이면 그 달의 마지막 날)
+  function addMonths(key, n) {
+    const d = parseKey(key);
+    const want = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    d.setDate(Math.min(want, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+    return keyOf(d);
+  }
+
+  // key가 속한 주의 7일 (일~토)
+  function weekOf(key) {
+    const start = addDays(key, -parseKey(key).getDay());
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }
+
+  // key가 속한 달을 채우는 주들 (앞뒤로 이웃 달 날짜 포함)
+  function monthWeeks(key) {
+    const d = parseKey(key);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const weeks = [];
+    let start = weekOf(keyOf(new Date(d.getFullYear(), d.getMonth(), 1)))[0];
+    while (parseKey(start) <= last) {
+      weeks.push(Array.from({ length: 7 }, (_, i) => addDays(start, i)));
+      start = addDays(start, 7);
+    }
+    return weeks;
+  }
+
   // 확장이 보낸 [{title, done}] → parse()와 같은 형태
   // 주소창(#items=…)으로도 들어올 수 있어서 개수와 길이를 제한함
   const MAX_ITEMS = 300;
@@ -198,7 +238,7 @@
     return { state: s, result, push };
   }
 
-  const api = { addManual, parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
+  const api = { addDays, addMonths, weekOf, monthWeeks, addManual, parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Planner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

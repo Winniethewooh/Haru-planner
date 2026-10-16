@@ -1,5 +1,5 @@
 (function () {
-  const { SLOTS, currentSlot, addManual, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
+  const { SLOTS, currentSlot, addDays, addMonths, weekOf, monthWeeks, addManual, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
   const Cloud = window.Cloud;
   const TL = window.Timeline;
   const $ = s => document.querySelector(s);
@@ -15,7 +15,8 @@
   };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-  let day = today();
+  let day = today();          // 지금 보고 있는 날 (기본은 오늘)
+  let todayKey = day;         // 실제 오늘
   let state = load(day);
   let openId = null;
   let noticeTimer = null;
@@ -100,7 +101,7 @@
   // 하루를 열 때 마지막으로 가져온 지 오래됐으면 자동으로 다녀옴 (실패해도 15분 안엔 다시 안 함)
   function autoImport() {
     if (!settings.autoImport || !read('dayplan:userscript', false)) return;
-    if (document.visibilityState !== 'visible' || sheet.open) return;
+    if (document.visibilityState !== 'visible' || sheet.open || day !== today()) return;
     const last = Math.max(state.syncedAt || 0, read('dayplan:importAt', 0));
     if (Date.now() - last > AUTO_MS) startImport();
   }
@@ -123,12 +124,13 @@
   let pulling = false;
 
   function schedulePush() {
-    if (!Cloud.connected()) return;
+    if (!Cloud.connected() || day !== today()) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(push, 1500);
   }
 
   async function push() {
+    if (day !== today()) return;
     try {
       await Cloud.push({ date: day, tasks: state.tasks, grid: state.grid || {}, todoAt: state.todoAt || 0, updatedAt: state.updatedAt || 0 });
     } catch (e) {
@@ -182,9 +184,11 @@
 
     const at = Math.max(state.syncedAt || 0, state.checkedAt || 0);
     $('#syncInfo').textContent = at ? ago(at) : '';
-    $('#importBtn').classList.toggle('stale', !at || Date.now() - at > STALE_MS);
+    const isToday = day === today();
+    $('#importBtn').classList.toggle('stale', isToday && (!at || Date.now() - at > STALE_MS));
+    renderCal();
 
-    const now = currentSlot(new Date());
+    const now = isToday ? currentSlot(new Date()) : null;      // 지난·다음 날에는 '지금' 표시 없음
     const nowIdx = SLOTS.findIndex(s => s.id === now);
     const container = $('#slots');
     container.innerHTML = '';
@@ -206,9 +210,77 @@
 
     const empty = state.tasks.length === 0;
     $('#empty').hidden = !empty;
+    $('#emptyToday').hidden = !isToday;
+    $('#emptyOther').hidden = isToday;
     container.hidden = empty;
     renderTime();
   }
+
+  // ---------- 날짜 보기: 주 / 월 ----------
+  let calMode = read('dayplan:calMode', 'week');
+  const WEEKDAYS = '일월화수목금토';
+  const keyParts = k => k.split('-').map(Number);
+
+  // 그날 기록 요약 (점 표시용): 할 일이 있는지, 모두 끝냈는지
+  function peek(key) {
+    const s = key === day ? state : read('dayplan:' + key, null);
+    const live = s && Array.isArray(s.tasks) ? s.tasks.filter(t => !t.gone) : [];
+    const has = live.length > 0 || (s && s.grid && Object.keys(s.grid).length > 0);
+    return { has, allDone: live.length > 0 && live.every(t => t.done) };
+  }
+
+  function setDay(key) {
+    if (key === day) return;
+    if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; push(); }   // 보던 날이 오늘이면 마지막 수정은 먼저 보냄
+    closePick();
+    closeEdit();
+    openId = null;
+    day = key;
+    state = load(day);
+    render();
+  }
+
+  function renderCal() {
+    const [y, m] = keyParts(day);
+    const thisYear = keyParts(todayKey)[0];
+    $('#calTitle').firstChild.textContent = (y === thisYear ? '' : y + '년 ') + m + '월 ';
+    $('#calTitle').classList.toggle('open', calMode === 'month');
+    $('#calToday').hidden = day === todayKey;
+
+    const grid = $('#calGrid');
+    grid.innerHTML = '';
+    for (const w of WEEKDAYS) {
+      const h = document.createElement('span');
+      h.className = 'wd';
+      h.textContent = w;
+      grid.appendChild(h);
+    }
+    const weeks = calMode === 'month' ? monthWeeks(day) : [weekOf(day)];
+    for (const week of weeks) {
+      for (const key of week) {
+        const [, km, kd] = keyParts(key);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cd' + (key === day ? ' sel' : '') + (key === todayKey ? ' today' : '') + (calMode === 'month' && km !== m ? ' out' : '');
+        const info = peek(key);
+        b.innerHTML = '<span></span><i></i>';
+        b.firstChild.textContent = kd;
+        if (info.has) b.classList.add(info.allDone ? 'full' : 'has');
+        b.setAttribute('aria-label', `${km}월 ${kd}일`);
+        b.setAttribute('aria-pressed', key === day ? 'true' : 'false');
+        b.onclick = () => setDay(key);
+        grid.appendChild(b);
+      }
+    }
+  }
+  $('#calTitle').onclick = () => {
+    calMode = calMode === 'week' ? 'month' : 'week';
+    write('dayplan:calMode', calMode);
+    renderCal();
+  };
+  $('#calPrev').onclick = () => setDay(calMode === 'month' ? addMonths(day, -1) : addDays(day, -7));
+  $('#calNext').onclick = () => setDay(calMode === 'month' ? addMonths(day, 1) : addDays(day, 7));
+  $('#calToday').onclick = () => setDay(todayKey);
 
   // ---------- 시간표 ----------
   let tab = read('dayplan:tab', 'plan');
@@ -305,6 +377,7 @@
       seg.style.gridColumn = `${run.from + 1} / ${run.to + 1}`;
       seg.style.setProperty('--c', `var(--c${colorOf(t)})`);
       seg.textContent = t.title;
+      if (t.done) seg.classList.add('done');
       if (edit && run.id === edit.id) {       // 편집 중인 덩어리는 테두리로 띄움
         if (r * TL.PER_ROW + run.from <= edit.hi && r * TL.PER_ROW + run.to - 1 >= edit.lo) seg.classList.add('lift');
       }
@@ -430,6 +503,65 @@
     render();
   }
 
+  // ---------- 넣어 둔 일정 눌러서 편집 ----------
+  let editIdx = null;    // 누른 칸 번호
+
+  function openEdit(idx) {
+    const t = state.tasks.find(x => x.id === state.grid[idx]);
+    if (!t) return;
+    editIdx = idx;
+    sel = null;              // 누른 칸의 선택 표시는 지움
+    drawSel();
+    const [a, b] = TL.blockAt(state.grid, idx);
+    $('#editTitle').textContent = t.title;
+    $('#editSub').textContent = `${timeText(a)} – ${timeText(b + 1)} · ${TL.fmt((b - a + 1) * TL.CELL_MIN)}`;
+    $('#editDone').classList.toggle('done', !!t.done);
+    $('#editDone').setAttribute('aria-pressed', t.done ? 'true' : 'false');
+    const box = $('#editColors');
+    box.innerHTML = '';
+    for (let c = 0; c < TL.COLORS; c++) {
+      const d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'dot' + (colorOf(t) === c ? ' on' : '');
+      d.style.setProperty('--c', `var(--c${c})`);
+      d.setAttribute('aria-label', `색 ${c + 1}`);
+      d.onclick = () => { patchTask(t.id, { color: c }); openEdit(idx); };
+      box.appendChild(d);
+    }
+    $('#edit').hidden = false;
+  }
+
+  function patchTask(id, patch) {
+    state.tasks = state.tasks.map(x => (x.id === id ? { ...x, ...patch } : x));
+    touch();
+    renderTime();
+    if (tab === 'plan') render();
+  }
+
+  function closeEdit() {
+    $('#edit').hidden = true;
+    editIdx = null;
+    sel = null;
+    drawSel();
+  }
+
+  $('#editDone').onclick = () => {
+    const t = state.tasks.find(x => x.id === state.grid[editIdx]);
+    if (!t) return;
+    patchTask(t.id, { done: !t.done });
+    render();
+    openEdit(editIdx);
+  };
+  $('#editClear').onclick = () => {
+    const blk = TL.blockAt(state.grid, editIdx);
+    if (blk) for (let i = blk[0]; i <= blk[1]; i++) state.grid = TL.paint(state.grid, i, null);
+    closeEdit();
+    touch();
+    renderTime();
+  };
+  $('#editClose').onclick = closeEdit;
+  document.querySelector('#edit .pick-backdrop').onclick = closeEdit;
+
   // ---------- 칸 누르기·끌기 / 길게 눌러 옮기기·늘이기 ----------
   //  - 칸을 누르거나 끌면 시간 범위를 고름 → 할 일 목록
   //  - 넣어 둔 블록을 길게(0.45초) 누른 채 끌면 블록이 통째로 따라와서 놓은 시간으로 옮겨짐
@@ -523,6 +655,7 @@
     if (!state.grid) state.grid = {};
     const idx = +el.dataset.i;
     $('#pick').hidden = true;
+    $('#edit').hidden = true;
     last = { x: e.clientX, y: e.clientY };
     down = { x: e.clientX, y: e.clientY, idx, kind: null, timer: null };
     const blk = TL.blockAt(state.grid, idx);
@@ -547,7 +680,9 @@
     down = null;
     if (edit) return finishEdit(!cancel);
     if (cancel) return closePick();
-    if (sel) openPick();
+    if (!sel) return;
+    if (sel.a === sel.b && state.grid[sel.a]) openEdit(sel.a);   // 넣어 둔 일정을 한 번 누름 → 편집
+    else openPick();
   };
   window.addEventListener('pointerup', () => endDrag(false));
   window.addEventListener('pointercancel', () => endDrag(true));
@@ -556,7 +691,7 @@
   document.querySelector('.pick-backdrop').onclick = closePick;
 
   document.querySelectorAll('.tabs button').forEach(b => {
-    b.onclick = () => { tab = b.dataset.tab; write('dayplan:tab', tab); closePick(); renderTime(); };
+    b.onclick = () => { tab = b.dataset.tab; write('dayplan:tab', tab); closePick(); closeEdit(); renderTime(); };
   });
   window.addEventListener('resize', () => { if (tab === 'time' && !down && !sel) renderTime(); });
 
@@ -585,10 +720,10 @@
     const title = document.createElement('span');
     title.className = 'title';
     title.textContent = t.title;
-    if (t.cat || t.manual) {
+    if (t.cat) {
       const cat = document.createElement('span');
       cat.className = 'cat';
-      cat.textContent = t.cat || '직접';
+      cat.textContent = t.cat;
       title.appendChild(cat);
     }
 
@@ -826,7 +961,10 @@
   // ---------- 날짜 넘어감 · 앱 복귀 ----------
   function tick() {
     const d = today();
-    if (d !== day) { day = d; state = load(day); openId = null; }
+    if (d !== todayKey) {
+      if (day === todayKey) { day = d; state = load(day); openId = null; }   // 오늘을 보고 있었다면 새 오늘로
+      todayKey = d;
+    }
     render();
   }
   setInterval(tick, 60 * 1000);

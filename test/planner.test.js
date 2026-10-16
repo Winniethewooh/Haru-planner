@@ -169,3 +169,25 @@ test('merge: 직접 추가한 할 일은 가져오기에서 지워지거나 바�
   const t2 = P.merge([m], P.parse('병원 예약!'));
   assert.strictEqual(t2.tasks.find(t => t.manual).title, '병원 예약');
 });
+
+test('날짜 계산: addDays / addMonths', () => {
+  assert.strictEqual(P.addDays('2026-10-31', 1), '2026-11-01');
+  assert.strictEqual(P.addDays('2026-01-01', -1), '2025-12-31');
+  assert.strictEqual(P.addDays('2028-02-28', 1), '2028-02-29');
+  assert.strictEqual(P.addMonths('2026-01-31', 1), '2026-02-28');   // 없는 날은 말일로
+  assert.strictEqual(P.addMonths('2026-03-15', -3), '2025-12-15');
+  assert.strictEqual(P.addMonths('2026-12-10', 1), '2027-01-10');
+});
+
+test('날짜 계산: weekOf / monthWeeks (일요일 시작)', () => {
+  // 2026-10-15 는 목요일
+  assert.deepStrictEqual(P.weekOf('2026-10-15'), ['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17']);
+  assert.deepStrictEqual(P.weekOf('2026-10-11')[0], '2026-10-11');           // 일요일은 그 주의 첫날
+  const w = P.monthWeeks('2026-10-15');
+  assert.strictEqual(w.length, 5);                                           // 9/27 ~ 10/31
+  assert.strictEqual(w[0][0], '2026-09-27');
+  assert.strictEqual(w[4][6], '2026-10-31');
+  assert.ok(w.every(r => r.length === 7));
+  assert.strictEqual(P.monthWeeks('2026-02-10').length, 4);                  // 2/1(일) ~ 2/28(토): 딱 4주
+  assert.strictEqual(P.monthWeeks('2026-08-10').length, 6);                  // 7/26 ~ 9/5
+});
