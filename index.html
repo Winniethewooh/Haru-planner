@@ -34,6 +34,11 @@
     </nav>
 
     <div id="planView">
+      <form id="addForm" class="addrow" autocomplete="off">
+        <input id="addInput" type="text" maxlength="100" placeholder="할 일 직접 추가" aria-label="할 일 직접 추가">
+        <button type="submit" class="primary">추가</button>
+      </form>
+
       <section id="inbox" class="slot" data-slot="">
         <h2>미배정 <span class="count"></span></h2>
         <ul></ul>
@@ -58,6 +63,10 @@
     <div class="pick-sheet" role="dialog" aria-labelledby="pickTitle">
       <h3 id="pickTitle"></h3>
       <p id="pickSub" class="muted small"></p>
+      <form id="pickAdd" class="addrow" autocomplete="off">
+        <input id="pickAddInput" type="text" maxlength="100" placeholder="투두메이트에 없는 할 일 직접 추가" aria-label="할 일 직접 추가">
+        <button type="submit" class="primary">추가</button>
+      </form>
       <div id="pickList"></div>
       <div class="row">
         <button id="pickClear" type="button" class="ghost" hidden>이 시간 비우기</button>

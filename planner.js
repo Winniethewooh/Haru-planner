@@ -76,7 +76,7 @@
 
   // 정확히 같은 키가 없을 때, 글자 몇 개만 다른 항목(스크린샷 인식 오차 등)을 같은 할 일로 짝지음
   function fuzzyPairs(tasks, incoming) {
-    const left = tasks.filter(t => !incoming.has(t.key));
+    const left = tasks.filter(t => !t.manual && !incoming.has(t.key));
     const right = [...incoming.values()].filter(p => !tasks.some(t => t.key === p.key));
     const cands = [];
     for (const t of left) for (const p of right) {
@@ -101,6 +101,7 @@
     const result = { tasks: [], added: 0, removed: 0, completed: 0 };
 
     for (const t of tasks) {
+      if (t.manual) { result.tasks.push(t); continue; }     // 직접 추가한 항목은 그대로 둠
       const p = incoming.get(t.key) || fuzzy.get(t.id);
       if (!p) {
         if (!t.gone) result.removed++;
@@ -118,6 +119,16 @@
       result.tasks.push({ id: uid(), key: p.key, title: p.title, cat: p.cat, done: !!p.done, slot: null, gone: false, fresh: true });
     }
     return result;
+  }
+
+  // 서비스에서 직접 추가한 할 일. 투두메이트 항목과 키가 겹치지 않게 별도 키를 씀.
+  const MAX_TITLE = 100;
+  function addManual(tasks, title) {
+    const text = String(title || '').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE);
+    if (!text) return null;
+    const id = uid();
+    const task = { id, key: 'manual:' + id, title: text, cat: '', done: false, slot: null, gone: false, fresh: false, manual: true };
+    return { tasks: [...tasks, task], task };
   }
 
   function hasChanges(r) { return r.added + r.removed + r.completed > 0; }
@@ -187,7 +198,7 @@
     return { state: s, result, push };
   }
 
-  const api = { parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
+  const api = { addManual, parseCal, DAY_START, SLOTS, currentSlot, parse, merge, hasChanges, normalize, dayOf, fromItems, reconcile, similarity };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Planner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

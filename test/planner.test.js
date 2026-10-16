@@ -142,3 +142,30 @@ test('parseCal: 단축어 일정 텍스트', () => {
     { from: 545, to: 575, title: '점심 약속' },
   ]);
 });
+
+test('addManual: 직접 추가한 할 일', () => {
+  assert.strictEqual(P.addManual([], '   '), null);
+  const r = P.addManual([{ id: 'x' }], '  영어   단어  ');
+  assert.strictEqual(r.task.title, '영어 단어');
+  assert.strictEqual(r.task.manual, true);
+  assert.strictEqual(r.tasks.length, 2);
+  assert.strictEqual(P.addManual([], 'a'.repeat(500)).task.title.length, 100);
+  const a = P.addManual([], '같은 제목').task, b = P.addManual([], '같은 제목').task;
+  assert.notStrictEqual(a.key, b.key);
+});
+
+test('merge: 직접 추가한 할 일은 가져오기에서 지워지거나 바뀌지 않음', () => {
+  const m = P.addManual([], '병원 예약').task;
+  m.slot = 'pm';
+  const t0 = P.merge([m], P.parse('영어 단어'));
+  assert.strictEqual(t0.removed, 0);
+  assert.deepStrictEqual(t0.tasks.find(t => t.manual), m);
+  assert.strictEqual(t0.tasks.length, 2);
+  // 투두메이트에 같은 제목이 들어와도 직접 추가한 것과 합쳐지지 않음
+  const t1 = P.merge(t0.tasks, P.parse('영어 단어\n병원 예약'));
+  assert.strictEqual(t1.tasks.filter(t => t.title === '병원 예약').length, 2);
+  assert.strictEqual(t1.tasks.find(t => t.manual).slot, 'pm');
+  // 비슷한 글자의 투두메이트 항목과 짝지어지지 않음
+  const t2 = P.merge([m], P.parse('병원 예약!'));
+  assert.strictEqual(t2.tasks.find(t => t.manual).title, '병원 예약');
+});

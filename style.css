@@ -208,3 +208,12 @@ dialog h3 { font-size: 13px; font-weight: 600; color: var(--sub); margin: 20px 0
 .pick-empty { margin: 14px 8px 4px; }
 .pick-more { display: block; margin: 6px 8px 4px; text-align: left; }
 
+
+.addrow { display: flex; gap: 8px; margin: 0 0 18px; }
+.addrow input { flex: 1; min-width: 0; padding: 12px 16px; font: inherit; color: inherit; background: var(--card); border: 0; border-radius: 14px; outline: none; box-shadow: 0 0 0 1px var(--line); }
+.addrow input:focus-visible { box-shadow: 0 0 0 2px var(--fg); }
+.addrow input::placeholder { color: var(--muted); }
+.addrow .primary { flex: none; }
+.pick-sheet .addrow { margin: 6px 0 4px; }
+.pick-sheet .addrow input { background: var(--soft); box-shadow: none; }
+.picker button.del { margin-left: auto; color: #d33; background: none; }

@@ -1,5 +1,5 @@
 (function () {
-  const { SLOTS, currentSlot, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
+  const { SLOTS, currentSlot, addManual, parse, parseCal, merge, hasChanges, dayOf, reconcile, fromItems } = window.Planner;
   const Cloud = window.Cloud;
   const TL = window.Timeline;
   const $ = s => document.querySelector(s);
@@ -361,6 +361,7 @@
     const sums = TL.totals(state.grid);
     const box = $('#pickList');
     box.innerHTML = '';
+    $('#pickAddInput').value = '';
     $('#pickTitle').textContent = `${timeText(a)} – ${timeText(b + 1)}`;
     $('#pickSub').textContent = TL.fmt((b - a + 1) * TL.CELL_MIN);
 
@@ -399,6 +400,16 @@
     $('#pickClear').hidden = !painted;
     $('#pick').hidden = false;
   }
+
+  // 직접 추가: 이름을 입력하면 새 할 일을 만들고 고른 시간에 바로 넣음
+  $('#pickAdd').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = addManual(state.tasks, $('#pickAddInput').value);
+    $('#pickAddInput').value = '';
+    if (!r || !sel) return;
+    state.tasks = r.tasks;
+    assignRange(r.task.id);
+  });
 
   function closePick() {
     $('#pick').hidden = true;
@@ -574,10 +585,10 @@
     const title = document.createElement('span');
     title.className = 'title';
     title.textContent = t.title;
-    if (t.cat) {
+    if (t.cat || t.manual) {
       const cat = document.createElement('span');
       cat.className = 'cat';
-      cat.textContent = t.cat;
+      cat.textContent = t.cat || '직접';
       title.appendChild(cat);
     }
 
@@ -613,8 +624,26 @@
       b.onclick = () => { openId = null; update(t.id, { slot: s.id, fresh: false }); };
       wrap.appendChild(b);
     }
+    if (t.manual) {       // 직접 추가한 항목만 지울 수 있음 (투두메이트 항목은 투두메이트에서 지움)
+      const del = document.createElement('button');
+      del.textContent = '삭제';
+      del.className = 'del';
+      del.onclick = () => { openId = null; remove(t.id); };
+      wrap.appendChild(del);
+    }
     return wrap;
   }
+
+  // 계획 탭에서 직접 추가: 미배정에 들어감
+  $('#addForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = addManual(state.tasks, $('#addInput').value);
+    $('#addInput').value = '';
+    if (!r) return;
+    state.tasks = r.tasks;
+    touch();
+    render();
+  });
 
   function update(id, patch) {
     state.tasks = state.tasks.map(t => (t.id === id ? { ...t, ...patch } : t));
