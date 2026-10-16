@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         하루로 보내기
 // @description  투두메이트 웹의 오늘 할 일을 하루 플래너로 보냅니다.
-// @version      0.4.0
-// @match        https://www.todomate.net/*
+// @version      0.5.0
 // @match        https://todomate.net/*
+// @match        https://*.todomate.net/*
+// @downloadURL  https://winniethewooh.github.io/Haru-planner/haru.user.js
+// @updateURL    https://winniethewooh.github.io/Haru-planner/haru.user.js
 // @run-at       document-start
 // @inject-into  content
 // @noframes
@@ -161,10 +163,11 @@ globalThis.__HARU_MODE = 'userscript';
 
   // 하루가 todomate.net/#haru=<하루 주소> 로 열었는지. 투두메이트 화면이 뜨기 전에 주소를 원래대로 돌려놓음.
   let pending = null;   // 아직 허용하지 않은 주소
-  const m = location.hash.match(/^#haru=(.+)$/);
+  const m = location.hash.match(/^#haru=([^&]+)(&redo)?$/);
   if (m) {
     let back = '';
     try { back = decodeURIComponent(m[1]); } catch {}
+    if (m[2]) store.set(CFG, null);        // 하루 설정의 '투두메이트 화면 설정 다시 하기'
     if (isAllowed(back)) accept(back);
     else if (!bakedOrigin && originOf(back)) pending = back;
     history.replaceState(history.state, '', location.pathname + location.search);
@@ -177,7 +180,7 @@ globalThis.__HARU_MODE = 'userscript';
     return isAllowed(url) ? url : null;
   };
 
-  let cfg = store.get(CFG);
+  let cfg = store.get(CFG);   // (redo 로 지웠으면 null)
   let card = null;
 
   // ---------- 하단 카드 ----------
@@ -341,14 +344,20 @@ globalThis.__HARU_MODE = 'userscript';
 
   // 투두메이트를 직접 열었을 때 보이는 작은 버튼
   function pill() {
-    if (!planner() || document.getElementById('haru-pill')) return;
+    if (document.getElementById('haru-pill')) return;
     const b = document.createElement('button');
     b.id = 'haru-pill';
     b.textContent = '하루로';
     b.style.cssText = 'position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147483645;' +
       'font:600 13px/1 -apple-system,system-ui,sans-serif;background:#111;color:#fff;border:0;border-radius:99px;padding:10px 14px;' +
       'box-shadow:0 4px 14px rgba(0,0,0,.2);opacity:.85';
-    b.onclick = e => { e.preventDefault(); e.stopPropagation(); returnTo = planner(); run(); };
+    b.onclick = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!planner()) return show('하루 앱을 거쳐서 열어야 해요. 하루 설정 › 투두메이트 웹에서 가져오기에서 가져오기를 눌러 주세요.', [{ label: '닫기', run: close }]);
+      returnTo = planner();
+      run();
+    };
     document.documentElement.appendChild(b);
   }
 

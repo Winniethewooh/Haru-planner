@@ -1,5 +1,5 @@
 // 오프라인에서도 열리도록 앱 파일을 캐시 (네트워크 우선)
-const CACHE = 'haru-v30';
+const CACHE = 'haru-v31';
 const ASSETS = ['./', 'index.html', 'style.css', 'planner.js', 'timeline.js', 'cloud.js', 'app.js', 'icon.svg', 'fonts/PretendardVariable.woff2', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {

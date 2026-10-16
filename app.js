@@ -922,6 +922,10 @@
     showStatus();
     notify(n ? `가져온 항목 ${n}개를 지웠어요` : '지울 항목이 없어요');
   };
+  // 처음 설정(할 일 위치 지정)을 다시 함: 저장된 위치를 지우고 투두메이트로 이동
+  $('#redoSetup').onclick = () => {
+    location.assign(TODOMATE + '#haru=' + encodeURIComponent(location.origin + location.pathname) + '&redo');
+  };
   $('#webImport').onchange = e => {
     settings.webImport = e.target.checked;
     write('dayplan:settings', settings);
